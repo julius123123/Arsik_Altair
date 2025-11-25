@@ -1,0 +1,295 @@
+.approval-dashboard {
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: #f5f7fa;
+}
+
+.dashboard-header {
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 30px;
+}
+
+.dashboard-header h1 {
+  margin: 0 0 10px 0;
+  color: #2c3e50;
+}
+
+.dashboard-header p {
+  margin: 0 0 15px 0;
+  color: #7f8c8d;
+}
+
+.stats {
+  display: flex;
+  gap: 15px;
+}
+
+.stat-badge {
+  background: #ff9800;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.loading {
+  text-align: center;
+  padding: 60px 20px;
+  font-size: 18px;
+  color: #7f8c8d;
+}
+
+.empty-state {
+  background: white;
+  padding: 80px 40px;
+  border-radius: 12px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.empty-icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+}
+
+.empty-state h3 {
+  margin: 0 0 10px 0;
+  color: #2c3e50;
+}
+
+.empty-state p {
+  margin: 0;
+  color: #7f8c8d;
+}
+
+.requests-container {
+  display: flex;
+  gap: 30px;
+}
+
+.requests-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 20px;
+  align-content: start;
+}
+
+.request-card {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  position: relative;
+}
+
+.request-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.request-card.selected {
+  border: 3px solid #3498db;
+  box-shadow: 0 8px 24px rgba(52, 152, 219, 0.3);
+}
+
+.face-image {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  background: #f0f0f0;
+}
+
+.request-info {
+  padding: 15px;
+}
+
+.request-info h3 {
+  margin: 0 0 8px 0;
+  color: #2c3e50;
+  font-size: 18px;
+}
+
+.request-info .relation {
+  margin: 0 0 10px 0;
+  color: #3498db;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.request-info .timestamp {
+  margin: 0 0 5px 0;
+  font-size: 12px;
+  color: #95a5a6;
+}
+
+.request-info .patient-id {
+  margin: 0;
+  font-size: 11px;
+  color: #bdc3c7;
+}
+
+.badge-pending {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: #ff9800;
+  color: white;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.approval-panel {
+  width: 400px;
+  background: white;
+  border-radius: 12px;
+  padding: 30px;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.1);
+  position: sticky;
+  top: 20px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+}
+
+.approval-panel h2 {
+  margin: 0 0 20px 0;
+  color: #2c3e50;
+}
+
+.panel-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.large-face-image {
+  width: 100%;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group label {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 14px;
+}
+
+.form-group input {
+  padding: 10px;
+  border: 2px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.3s;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #3498db;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.btn {
+  padding: 12px 20px;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  flex: 1;
+}
+
+.btn-approve {
+  background: #27ae60;
+  color: white;
+}
+
+.btn-approve:hover {
+  background: #229954;
+  transform: translateY(-2px);
+}
+
+.btn-reject {
+  background: #e74c3c;
+  color: white;
+  width: 100%;
+}
+
+.btn-reject:hover {
+  background: #c0392b;
+  transform: translateY(-2px);
+}
+
+.btn-secondary {
+  background: #95a5a6;
+  color: white;
+}
+
+.btn-secondary:hover {
+  background: #7f8c8d;
+}
+
+.reject-section {
+  padding-top: 20px;
+  border-top: 2px solid #ecf0f1;
+}
+
+.reject-section h3 {
+  margin: 0 0 15px 0;
+  color: #e74c3c;
+  font-size: 16px;
+}
+
+.reject-section input {
+  width: 100%;
+  padding: 10px;
+  border: 2px solid #e0e0e0;
+  border-radius: 6px;
+  margin-bottom: 10px;
+}
+
+@media (max-width: 1024px) {
+  .requests-container {
+    flex-direction: column;
+  }
+
+  .approval-panel {
+    width: 100%;
+    position: static;
+    max-height: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .requests-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-header {
+    padding: 20px;
+  }
+
+  .approval-panel {
+    padding: 20px;
+  }
+}
