@@ -1,0 +1,53 @@
+.location-tracker {
+  position: fixed;
+  top: 70px;
+  right: 20px;
+  z-index: 100;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+
+.location-tracker.out-of-bounds {
+  background: rgba(255, 59, 48, 0.95);
+}
+
+.location-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.location-icon {
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+}
+
+.location-icon.warning {
+  animation: pulse 2s infinite;
+}
+
+.location-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+}
+
+.location-text.warning {
+  color: white;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1);
+  }
+}

@@ -15,10 +15,15 @@ class ConversationAI {
 
   getPatientId() {
     let patientId = localStorage.getItem('arsik_patient_id');
-    if (!patientId) {
-      patientId = `patient_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Force reset to patient_001 if it's an old random ID
+    if (!patientId || patientId.startsWith('patient_') && patientId.length > 15) {
+      console.log('🔄 Resetting patient ID to patient_001 (was:', patientId, ')');
+      patientId = 'patient_001'; // Fixed ID for consistency with caregiver app
       localStorage.setItem('arsik_patient_id', patientId);
     }
+    
+    console.log('👤 Patient ID:', patientId);
     return patientId;
   }
 
@@ -36,6 +41,11 @@ class ConversationAI {
     } catch (error) {
       console.error('Error syncing patient profile:', error);
     }
+  }
+
+  async reloadProfile() {
+    // Force reload profile from backend
+    await this.syncConfigFromBackend();
   }
 
   loadPatientProfile() {
@@ -137,6 +147,8 @@ class ConversationAI {
     } catch (error) {
       console.error('Error fetching routines:', error);
     }
+
+    console.log('📋 Building system prompt with profile:', this.patientProfile);
 
     return `You are a compassionate AI assistant helping a dementia patient. Your role is to:
 

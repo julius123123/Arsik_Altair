@@ -3,6 +3,7 @@ import FaceRecognition from './components/FaceRecognition'
 import PeopleList from './components/PeopleList'
 import RoutineNotification from './components/RoutineNotification'
 import ConversationAssistant from './components/ConversationAssistant'
+import LocationTracker from './components/LocationTracker'
 import './App.css'
 
 function App() {
@@ -13,6 +14,9 @@ function App() {
     <div className="app">
       {/* Routine notifications overlay */}
       <RoutineNotification />
+      
+      {/* Location tracking */}
+      <LocationTracker patientId="patient_001" />
 
       <header className="app-header">
         <h1>🧠 Dementia Patient Assistant</h1>

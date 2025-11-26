@@ -6,19 +6,29 @@ import './RoutineNotification.css';
 const RoutineNotification = () => {
   const [notifications, setNotifications] = useState([]);
   const [dismissed, setDismissed] = useState(new Set());
+  const [currentTime, setCurrentTime] = useState(new Date());
   const ttsService = useRef(null);
   const checkInterval = useRef(null);
+  const timerInterval = useRef(null);
 
   useEffect(() => {
     ttsService.current = getTTSService();
     
-    // Check for pending routines every 30 seconds
+    // Check for pending routines immediately and every 10 seconds
     checkPendingRoutines();
-    checkInterval.current = setInterval(checkPendingRoutines, 30000);
+    checkInterval.current = setInterval(checkPendingRoutines, 10000);
+
+    // Update current time every second for progress animation
+    timerInterval.current = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
 
     return () => {
       if (checkInterval.current) {
         clearInterval(checkInterval.current);
+      }
+      if (timerInterval.current) {
+        clearInterval(timerInterval.current);
       }
     };
   }, []);
@@ -95,8 +105,8 @@ const RoutineNotification = () => {
   const calculateProgress = (routine) => {
     if (!routine.startTime || !routine.endTime) return 0;
     
-    const now = new Date();
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    // Use currentTime state to trigger re-renders
+    const currentMinutes = currentTime.getHours() * 60 + currentTime.getMinutes() + currentTime.getSeconds() / 60;
     
     const [startHour, startMin] = routine.startTime.split(':').map(Number);
     const [endHour, endMin] = routine.endTime.split(':').map(Number);
@@ -105,7 +115,11 @@ const RoutineNotification = () => {
     const endMinutes = endHour * 60 + endMin;
     
     if (currentMinutes < startMinutes) return 0;
-    if (currentMinutes > endMinutes) return 100;
+    if (currentMinutes > endMinutes) {
+      // Auto-dismiss when timer is up
+      dismissNotification(routine.id);
+      return 100;
+    }
     
     const totalDuration = endMinutes - startMinutes;
     const elapsed = currentMinutes - startMinutes;

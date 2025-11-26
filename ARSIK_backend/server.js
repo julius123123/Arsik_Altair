@@ -20,6 +20,9 @@ const approvedPeople = new Map();   // id -> { id, name, relation, descriptor, i
 const routines = new Map();         // id -> { id, patientId, activityName, dateTime, isRecurring, frequency, createdBy, createdAt, notified }
 const patientProfiles = new Map();  // patientId -> { name, age, interests, familyMembers }
 const conversationHistory = new Map(); // patientId -> [ { role, content, timestamp } ]
+const patientLocations = new Map(); // patientId -> { latitude, longitude, timestamp, accuracy }
+const homeLocations = new Map();    // patientId -> { latitude, longitude, radius }
+const locationAlerts = new Map();   // alertId -> { patientId, distance, timestamp, acknowledged }
 
 // Gemini API configuration from environment
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
@@ -214,6 +217,43 @@ app.post('/api/caregiver/reject/:id', (req, res) => {
   }
 });
 
+// Add approved person directly (from caregiver Add Data feature)
+app.post('/api/approved', (req, res) => {
+  try {
+    const { name, relation, descriptor, imageData, patientId } = req.body;
+
+    if (!name || !relation || !descriptor || !imageData || !patientId) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const id = uuidv4();
+    const approvedPerson = {
+      id,
+      name,
+      relation,
+      descriptor,
+      imageData,
+      patientId,
+      status: 'approved',
+      approvedAt: new Date().toISOString()
+    };
+
+    approvedPeople.set(id, approvedPerson);
+
+    console.log(`[APPROVED] Direct add by caregiver: ${name} (${relation}) for patient ${patientId}`);
+
+    res.json({
+      success: true,
+      id,
+      message: 'Person added successfully',
+      person: approvedPerson
+    });
+  } catch (error) {
+    console.error('Error adding approved person:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Get all approved people (for caregiver to review)
 app.get('/api/caregiver/approved', (req, res) => {
   try {
@@ -361,38 +401,48 @@ app.get('/api/routines/:patientId/pending', (req, res) => {
   try {
     const { patientId } = req.params;
     const now = new Date();
-    const currentTime = now.toTimeString().slice(0, 5); // HH:MM format
-    const fiveMinutesLater = new Date(now.getTime() + 5 * 60000);
-    const laterTime = fiveMinutesLater.toTimeString().slice(0, 5);
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    const currentTimeInMinutes = currentHour * 60 + currentMinute;
 
     const pendingRoutines = Array.from(routines.values())
       .filter(r => {
         if (r.patientId !== patientId) return false;
-        if (r.notified) return false;
         
         // Check if routine is active based on startTime/endTime
         if (r.startTime && r.endTime) {
-          // Check if current time is within or approaching the routine window
-          return currentTime >= r.startTime && currentTime <= r.endTime;
+          const [startHour, startMin] = r.startTime.split(':').map(Number);
+          const [endHour, endMin] = r.endTime.split(':').map(Number);
+          const startTimeInMinutes = startHour * 60 + startMin;
+          const endTimeInMinutes = endHour * 60 + endMin;
+          
+          // Show notification when we're within the time window
+          const isInWindow = currentTimeInMinutes >= startTimeInMinutes && currentTimeInMinutes <= endTimeInMinutes;
+          
+          // Reset notified flag if we've passed the time window (for next day's routine)
+          if (!isInWindow && r.notified) {
+            r.notified = false;
+          }
+          
+          return isInWindow;
         }
         
         // Fallback to dateTime check for backward compatibility
         if (r.dateTime) {
           const routineTime = new Date(r.dateTime);
-          return routineTime <= fiveMinutesLater && routineTime >= now;
+          const fiveMinutesLater = new Date(now.getTime() + 5 * 60000);
+          const isPending = routineTime <= fiveMinutesLater && routineTime >= now;
+          
+          // Reset notified after the time has passed
+          if (!isPending && r.notified) {
+            r.notified = false;
+          }
+          
+          return isPending && !r.notified;
         }
         
         return false;
       });
-
-    // Mark as notified
-    pendingRoutines.forEach(r => {
-      const routine = routines.get(r.id);
-      if (routine) {
-        routine.notified = true;
-        routines.set(r.id, routine);
-      }
-    });
 
     if (pendingRoutines.length > 0) {
       console.log(`[ROUTINE] Found ${pendingRoutines.length} pending routines for patient ${patientId}`);
@@ -435,7 +485,15 @@ app.delete('/api/caregiver/routines/:id', (req, res) => {
 app.get('/api/caregiver/routines', (req, res) => {
   try {
     const allRoutines = Array.from(routines.values())
-      .sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime));
+      .sort((a, b) => {
+        // Sort by start time if available, otherwise by dateTime
+        if (a.startTime && b.startTime) {
+          return a.startTime.localeCompare(b.startTime);
+        }
+        return new Date(a.dateTime) - new Date(b.dateTime);
+      });
+
+    console.log(`[ROUTINE] Returning ${allRoutines.length} routines`);
 
     res.json({
       success: true,
@@ -443,7 +501,7 @@ app.get('/api/caregiver/routines', (req, res) => {
     });
   } catch (error) {
     console.error('[ROUTINE] Error getting all routines:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message, success: false, routines: [] });
   }
 });
 
@@ -516,9 +574,163 @@ app.get('/api/patient-profile/:patientId', (req, res) => {
     const { patientId } = req.params;
     const profile = patientProfiles.get(patientId) || {};
 
+    console.log(`[PROFILE] GET request for patient ${patientId}`);
+    console.log(`[PROFILE] Data found:`, profile);
+
     res.json({ profile });
   } catch (error) {
     console.error('Error getting profile:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================
+// LOCATION TRACKING ENDPOINTS
+// ============================================
+
+// Haversine formula to calculate distance between two coordinates
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371; // Earth's radius in kilometers
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; // Distance in km
+}
+
+// Update patient location
+app.post('/api/patient-location', (req, res) => {
+  try {
+    const { patientId, latitude, longitude, timestamp, accuracy } = req.body;
+
+    if (!patientId || latitude === undefined || longitude === undefined) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Save current location
+    patientLocations.set(patientId, {
+      latitude,
+      longitude,
+      timestamp,
+      accuracy
+    });
+
+    // Get home location (checkpoint)
+    let homeLocation = homeLocations.get(patientId);
+    
+    // If no home location set, use first location as home
+    if (!homeLocation) {
+      homeLocation = {
+        latitude,
+        longitude,
+        radius: 2.0 // 2 km radius
+      };
+      homeLocations.set(patientId, homeLocation);
+      console.log(`[LOCATION] Set home location for ${patientId}:`, homeLocation);
+    }
+
+    // Calculate distance from home
+    const distance = calculateDistance(
+      latitude,
+      longitude,
+      homeLocation.latitude,
+      homeLocation.longitude
+    );
+
+    const outOfBounds = distance > homeLocation.radius;
+
+    console.log(`[LOCATION] Patient ${patientId}: ${distance.toFixed(2)} km from home ${outOfBounds ? '⚠️ OUT OF BOUNDS' : '✅'}`);
+
+    // Create alert if out of bounds
+    if (outOfBounds) {
+      const alertId = uuidv4();
+      locationAlerts.set(alertId, {
+        id: alertId,
+        patientId,
+        distance: distance.toFixed(2),
+        latitude,
+        longitude,
+        timestamp: new Date().toISOString(),
+        acknowledged: false
+      });
+      console.log(`[ALERT] 🚨 Location alert created for ${patientId}`);
+    }
+
+    res.json({
+      success: true,
+      distance: parseFloat(distance.toFixed(2)),
+      outOfBounds,
+      homeLocation
+    });
+  } catch (error) {
+    console.error('Error updating location:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Set home location (checkpoint)
+app.post('/api/home-location', (req, res) => {
+  try {
+    const { patientId, latitude, longitude, radius } = req.body;
+
+    if (!patientId || latitude === undefined || longitude === undefined) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    homeLocations.set(patientId, {
+      latitude,
+      longitude,
+      radius: radius || 2.0
+    });
+
+    console.log(`[HOME] Set home location for ${patientId}:`, { latitude, longitude, radius: radius || 2.0 });
+
+    res.json({
+      success: true,
+      message: 'Home location saved'
+    });
+  } catch (error) {
+    console.error('Error setting home location:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get location alerts for caregiver
+app.get('/api/location-alerts', (req, res) => {
+  try {
+    const alerts = Array.from(locationAlerts.values())
+      .filter(alert => !alert.acknowledged)
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    res.json({ alerts });
+  } catch (error) {
+    console.error('Error getting alerts:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Acknowledge alert
+app.post('/api/location-alerts/:id/acknowledge', (req, res) => {
+  try {
+    const { id } = req.params;
+    const alert = locationAlerts.get(id);
+
+    if (!alert) {
+      return res.status(404).json({ error: 'Alert not found' });
+    }
+
+    alert.acknowledged = true;
+    console.log(`[ALERT] Alert ${id} acknowledged`);
+
+    res.json({
+      success: true,
+      message: 'Alert acknowledged'
+    });
+  } catch (error) {
+    console.error('Error acknowledging alert:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -622,6 +834,7 @@ app.listen(PORT, () => {
   console.log(`📊 Endpoints:`);
   console.log(`   - POST   /api/pending                         - Submit for approval`);
   console.log(`   - GET    /api/approved/:patientId             - Get approved people`);
+  console.log(`   - POST   /api/approved                        - Add approved person directly (➕ NEW)`);
   console.log(`   - GET    /api/caregiver/pending               - Get pending requests`);
   console.log(`   - POST   /api/caregiver/approve/:id           - Approve request`);
   console.log(`   - POST   /api/caregiver/reject/:id            - Reject request`);
@@ -638,6 +851,10 @@ app.listen(PORT, () => {
   console.log(`   - GET    /api/patient-profile/:patientId      - Get patient profile (🤖 NEW)`);
   console.log(`   - POST   /api/ai-chat                         - AI chat with Gemini (🤖 NEW)`);
   console.log(`   - GET    /api/ai-summary/:patientId           - Get conversation summary (🤖 NEW)`);
+  console.log(`   - POST   /api/patient-location                - Update patient GPS location (📍 NEW)`);
+  console.log(`   - POST   /api/home-location                   - Set home checkpoint (📍 NEW)`);
+  console.log(`   - GET    /api/location-alerts                 - Get location alerts (📍 NEW)`);
+  console.log(`   - POST   /api/location-alerts/:id/acknowledge - Acknowledge alert (📍 NEW)`);
   console.log(`   - POST   /api/admin/clear-all                 - Clear all data (⚠️  ADMIN)`);
   console.log(`   - GET    /api/health                          - Health check`);
   console.log(`\n🤖 Gemini API: ${GEMINI_API_KEY ? '✅ Configured' : '❌ Not configured (set GEMINI_API_KEY env var)'}\n`);

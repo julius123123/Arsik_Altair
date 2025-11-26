@@ -13,6 +13,7 @@ function ConversationAssistant() {
   const messagesEndRef = useRef(null);
   const recognitionRef = useRef(null);
   const tts = useRef(getTTSService());
+  const isSpeakingRef = useRef(false);
 
   useEffect(() => {
     // Check if backend API is configured
@@ -23,6 +24,12 @@ function ConversationAssistant() {
 
     // Load conversation history
     loadHistory();
+
+    // Reload patient profile every 30 seconds to get caregiver updates
+    const profileReloadInterval = setInterval(() => {
+      conversationAI.current.reloadProfile();
+      console.log('🔄 Reloading patient profile from backend');
+    }, 30000);
 
     // Initialize speech recognition with always-on continuous mode
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
@@ -93,15 +100,20 @@ function ConversationAssistant() {
       };
 
       recognitionRef.current.onend = () => {
-        console.log('Recognition ended, restarting...');
-        // Auto-restart to keep microphone always on (but not while speaking)
-        if (isListening && !isSpeaking) {
-          try {
-            recognitionRef.current.start();
-          } catch (e) {
-            console.log('Already started or error:', e);
+        console.log('Recognition ended');
+        // Auto-restart to keep microphone always on (but NOT while speaking)
+        setTimeout(() => {
+          if (recognitionRef.current && !isSpeakingRef.current) {
+            try {
+              recognitionRef.current.start();
+              console.log('🎤 Microphone auto-restarted');
+            } catch (e) {
+              console.log('Already started or error:', e);
+            }
+          } else if (isSpeakingRef.current) {
+            console.log('🔇 Not restarting mic - TTS is speaking');
           }
-        }
+        }, 100);
       };
 
       // Auto-start listening when component mounts
@@ -114,11 +126,12 @@ function ConversationAssistant() {
     }
 
     return () => {
+      clearInterval(profileReloadInterval);
       if (recognitionRef.current) {
         recognitionRef.current.stop();
       }
     };
-  }, [isSpeaking]);
+  }, []);
 
   useEffect(() => {
     // Auto-scroll to bottom
@@ -162,27 +175,37 @@ function ConversationAssistant() {
           timestamp: new Date().toISOString()
         }]);
 
-        // Stop microphone and speak the response
+        // Stop microphone BEFORE speaking to prevent echo
+        setIsSpeaking(true);
+        isSpeakingRef.current = true;
+        
         if (recognitionRef.current) {
           try {
             recognitionRef.current.stop();
-            setIsSpeaking(true);
+            console.log('🎤 Microphone stopped for TTS');
           } catch (e) {
             console.log('Error stopping recognition:', e);
           }
         }
         
-        tts.current.speakWithCallback(response.response, () => {
-          // Restart microphone after speaking
-          setIsSpeaking(false);
-          if (recognitionRef.current && isListening) {
-            try {
-              recognitionRef.current.start();
-            } catch (e) {
-              console.log('Error restarting recognition:', e);
+        // Wait a moment to ensure mic is fully stopped, then speak
+        setTimeout(() => {
+          tts.current.speakWithCallback(response.response, () => {
+            // TTS has finished, now wait additional time before restarting mic
+            console.log('🔊 TTS callback received, restarting microphone...');
+            setIsSpeaking(false);
+            isSpeakingRef.current = false;
+            
+            if (recognitionRef.current && isListening) {
+              try {
+                recognitionRef.current.start();
+                console.log('🎤 Microphone restarted');
+              } catch (e) {
+                console.log('Error restarting recognition:', e);
+              }
             }
-          }
-        });
+          });
+        }, 300);
       } else {
         // Show error
         setMessages(prev => [...prev, {

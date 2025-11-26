@@ -85,22 +85,28 @@ class TextToSpeechService {
 
     // Event handlers
     utterance.onstart = () => {
-      console.log('TTS started:', text);
+      console.log('🔊 TTS started:', text.substring(0, 50) + '...');
     };
 
     utterance.onend = () => {
-      console.log('TTS ended');
-      if (onEndCallback) {
-        onEndCallback();
-      }
+      console.log('🔊 TTS ended, waiting before callback...');
+      // Add 1 second delay after TTS ends before calling callback
+      // This ensures audio has fully stopped before restarting mic
+      setTimeout(() => {
+        if (onEndCallback) {
+          onEndCallback();
+        }
+      }, 1000);
     };
 
     utterance.onerror = (event) => {
-      console.error('TTS error:', event.error);
+      console.error('🔊 TTS error:', event.error);
       // Call callback even on error to restart microphone
-      if (onEndCallback) {
-        onEndCallback();
-      }
+      setTimeout(() => {
+        if (onEndCallback) {
+          onEndCallback();
+        }
+      }, 1000);
     };
 
     this.synth.speak(utterance);

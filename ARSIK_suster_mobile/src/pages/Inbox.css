@@ -1,0 +1,170 @@
+.inbox-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.inbox-badge {
+  background-color: var(--danger-red);
+  color: white;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.loading-message {
+  text-align: center;
+  padding: 32px;
+  color: var(--text-secondary);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 48px 24px;
+}
+
+.empty-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+}
+
+.empty-state h3 {
+  font-size: 18px;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.empty-state p {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.requests-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.request-item {
+  background-color: white;
+  border: 1px solid var(--border-gray);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.request-card {
+  padding: 16px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.request-card:active {
+  background-color: var(--bg-gray);
+}
+
+.request-card.selected {
+  background-color: #EFF6FF;
+}
+
+.request-image {
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 2px solid var(--primary-blue);
+}
+
+.request-info {
+  flex: 1;
+}
+
+.request-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.request-relation {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.request-time {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.badge-pending {
+  background-color: #FEF3C7;
+  color: var(--warning-orange);
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.approval-form {
+  padding: 16px;
+  border-top: 1px solid var(--border-gray);
+  background-color: #F9FAFB;
+}
+
+.approval-form .form-group {
+  margin-bottom: 16px;
+}
+
+.approval-form label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.btn-approve {
+  flex: 1;
+  padding: 12px;
+  background-color: var(--success-green);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.btn-approve:active {
+  opacity: 0.8;
+}
+
+.btn-reject {
+  flex: 1;
+  padding: 12px;
+  background-color: var(--danger-red);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.btn-reject:active {
+  opacity: 0.8;
+}
