@@ -8,8 +8,8 @@ const RoutineManager = () => {
   const [formData, setFormData] = useState({
     patientId: '',
     activityName: '',
-    date: '',
-    time: '',
+    startTime: '',
+    endTime: '',
     isRecurring: false,
     frequency: 'daily'
   });
@@ -31,13 +31,16 @@ const RoutineManager = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Combine date and time
-    const dateTime = `${formData.date}T${formData.time}:00`;
+    // Get today's date for the routine
+    const today = new Date().toISOString().split('T')[0];
+    const dateTime = `${today}T${formData.startTime}:00`;
     
     const routineData = {
       patientId: formData.patientId,
       activityName: formData.activityName,
       dateTime,
+      startTime: formData.startTime,
+      endTime: formData.endTime,
       isRecurring: formData.isRecurring,
       frequency: formData.isRecurring ? formData.frequency : null
     };
@@ -48,8 +51,8 @@ const RoutineManager = () => {
       setFormData({
         patientId: '',
         activityName: '',
-        date: '',
-        time: '',
+        startTime: '',
+        endTime: '',
         isRecurring: false,
         frequency: 'daily'
       });
@@ -72,33 +75,29 @@ const RoutineManager = () => {
     }
   };
 
-  const formatDateTime = (isoString) => {
-    const date = new Date(isoString);
-    return date.toLocaleString('id-ID', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+  const formatTimeRange = (routine) => {
+    // Handle both old format (dateTime) and new format (startTime/endTime)
+    if (routine.startTime && routine.endTime) {
+      return `${routine.startTime} - ${routine.endTime}`;
+    }
+    if (routine.startTime) {
+      return routine.startTime;
+    }
+    if (routine.endTime) {
+      return routine.endTime;
+    }
+    // Fallback to dateTime if available
+    if (routine.dateTime) {
+      const date = new Date(routine.dateTime);
+      return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    }
+    return 'No time set';
   };
-
-  const isUpcoming = (dateTime) => {
-    return new Date(dateTime) > new Date();
-  };
-
-  const isPast = (dateTime) => {
-    return new Date(dateTime) < new Date();
-  };
-
-  const upcomingRoutines = routines.filter(r => isUpcoming(r.dateTime));
-  const pastRoutines = routines.filter(r => isPast(r.dateTime));
 
   return (
     <div className="routine-manager">
-      <div className="routine-header">
-        <h2>📅 Patient Routines & Reminders</h2>
+      <div className="routine-header-container">
+        <h1 className="routine-title">Kegiatan Harian</h1>
         <button 
           className="btn-add-routine"
           onClick={() => setShowAddForm(!showAddForm)}
@@ -129,28 +128,28 @@ const RoutineManager = () => {
                 type="text"
                 value={formData.activityName}
                 onChange={(e) => setFormData({...formData, activityName: e.target.value})}
-                placeholder="e.g., Minum obat, Makan siang, Olahraga"
+                placeholder="e.g., Sarapan, Minum Obat, Mandi"
                 required
               />
             </div>
 
             <div className="form-row">
               <div className="form-group">
-                <label>Date:</label>
+                <label>Start Time:</label>
                 <input
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData({...formData, date: e.target.value})}
+                  type="time"
+                  value={formData.startTime}
+                  onChange={(e) => setFormData({...formData, startTime: e.target.value})}
                   required
                 />
               </div>
 
               <div className="form-group">
-                <label>Time:</label>
+                <label>End Time:</label>
                 <input
                   type="time"
-                  value={formData.time}
-                  onChange={(e) => setFormData({...formData, time: e.target.value})}
+                  value={formData.endTime}
+                  onChange={(e) => setFormData({...formData, endTime: e.target.value})}
                   required
                 />
               </div>
@@ -197,63 +196,25 @@ const RoutineManager = () => {
         </div>
       )}
 
-      <div className="routines-section">
-        <h3>Upcoming Routines ({upcomingRoutines.length})</h3>
-        {upcomingRoutines.length === 0 ? (
-          <p className="no-routines">No upcoming routines</p>
+      <div className="routines-grid">
+        {routines.length === 0 ? (
+          <p className="no-routines">No routines available. Add some activities to get started!</p>
         ) : (
-          <div className="routines-list">
-            {upcomingRoutines.map(routine => (
-              <div key={routine.id} className="routine-card upcoming">
-                <div className="routine-icon">⏰</div>
-                <div className="routine-info">
-                  <h4>{routine.activityName}</h4>
-                  <p className="routine-time">{formatDateTime(routine.dateTime)}</p>
-                  <p className="routine-patient">Patient: {routine.patientId}</p>
-                  {routine.isRecurring && (
-                    <span className="badge-recurring">🔄 {routine.frequency}</span>
-                  )}
-                </div>
-                <button
-                  className="btn-delete-routine"
-                  onClick={() => handleDelete(routine.id, routine.activityName)}
-                  title="Delete routine"
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="routines-section">
-        <h3>Past Routines ({pastRoutines.length})</h3>
-        {pastRoutines.length === 0 ? (
-          <p className="no-routines">No past routines</p>
-        ) : (
-          <div className="routines-list">
-            {pastRoutines.map(routine => (
-              <div key={routine.id} className="routine-card past">
-                <div className="routine-icon">✓</div>
-                <div className="routine-info">
-                  <h4>{routine.activityName}</h4>
-                  <p className="routine-time">{formatDateTime(routine.dateTime)}</p>
-                  <p className="routine-patient">Patient: {routine.patientId}</p>
-                  {routine.notified && (
-                    <span className="badge-notified">📢 Notified</span>
-                  )}
-                </div>
-                <button
-                  className="btn-delete-routine"
-                  onClick={() => handleDelete(routine.id, routine.activityName)}
-                  title="Delete routine"
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
-          </div>
+          routines.map(routine => (
+            <div key={routine.id} className="activity-card">
+              <button
+                className="btn-delete-activity"
+                onClick={() => handleDelete(routine.id, routine.activityName)}
+                title="Delete routine"
+              >
+                ✕
+              </button>
+              <h3 className="activity-name">{routine.activityName}</h3>
+              <p className="activity-time">
+                {formatTimeRange(routine)}
+              </p>
+            </div>
+          ))
         )}
       </div>
     </div>

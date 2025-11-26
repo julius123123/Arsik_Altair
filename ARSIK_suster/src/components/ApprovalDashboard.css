@@ -220,12 +220,12 @@
 }
 
 .btn-approve {
-  background: #27ae60;
+  background: #2196F3;
   color: white;
 }
 
 .btn-approve:hover {
-  background: #229954;
+  background: #1E88E5;
   transform: translateY(-2px);
 }
 

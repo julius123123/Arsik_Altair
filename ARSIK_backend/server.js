@@ -1,6 +1,11 @@
 import express from 'express';
 import cors from 'cors';
 import { v4 as uuidv4 } from 'uuid';
+import dotenv from 'dotenv';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+
+// Load environment variables
+dotenv.config();
 
 const app = express();
 const PORT = 3001;
@@ -13,6 +18,18 @@ app.use(express.json({ limit: '50mb' })); // Allow large base64 images
 const pendingApprovals = new Map(); // id -> { id, name, relation, descriptor, imageData, patientId, timestamp, status }
 const approvedPeople = new Map();   // id -> { id, name, relation, descriptor, imageData, patientId, approvedAt }
 const routines = new Map();         // id -> { id, patientId, activityName, dateTime, isRecurring, frequency, createdBy, createdAt, notified }
+const patientProfiles = new Map();  // patientId -> { name, age, interests, familyMembers }
+const conversationHistory = new Map(); // patientId -> [ { role, content, timestamp } ]
+
+// Gemini API configuration from environment
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
+let genAI = null;
+let model = null;
+
+if (GEMINI_API_KEY) {
+  genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+  model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+}
 
 // ============================================
 // PATIENT APP ENDPOINTS (ARSIK)
@@ -285,9 +302,9 @@ app.get('/api/health', (req, res) => {
 // Create new routine (Caregiver)
 app.post('/api/caregiver/routines', (req, res) => {
   try {
-    const { patientId, activityName, dateTime, isRecurring, frequency } = req.body;
+    const { patientId, activityName, dateTime, startTime, endTime, isRecurring, frequency } = req.body;
 
-    if (!patientId || !activityName || !dateTime) {
+    if (!patientId || !activityName) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
@@ -296,7 +313,9 @@ app.post('/api/caregiver/routines', (req, res) => {
       id,
       patientId,
       activityName,
-      dateTime: new Date(dateTime).toISOString(),
+      dateTime: dateTime ? new Date(dateTime).toISOString() : new Date().toISOString(),
+      startTime: startTime || null,
+      endTime: endTime || null,
       isRecurring: isRecurring || false,
       frequency: frequency || null, // 'daily', 'weekly', 'monthly'
       createdBy: 'caregiver',
@@ -306,7 +325,7 @@ app.post('/api/caregiver/routines', (req, res) => {
 
     routines.set(id, routine);
 
-    console.log(`[ROUTINE] New routine created for patient ${patientId}: ${activityName} at ${dateTime}`);
+    console.log(`[ROUTINE] New routine created for patient ${patientId}: ${activityName} (${startTime} - ${endTime})`);
 
     res.json({
       success: true,
@@ -342,13 +361,28 @@ app.get('/api/routines/:patientId/pending', (req, res) => {
   try {
     const { patientId } = req.params;
     const now = new Date();
+    const currentTime = now.toTimeString().slice(0, 5); // HH:MM format
     const fiveMinutesLater = new Date(now.getTime() + 5 * 60000);
+    const laterTime = fiveMinutesLater.toTimeString().slice(0, 5);
 
     const pendingRoutines = Array.from(routines.values())
       .filter(r => {
         if (r.patientId !== patientId) return false;
-        const routineTime = new Date(r.dateTime);
-        return routineTime <= fiveMinutesLater && routineTime >= now && !r.notified;
+        if (r.notified) return false;
+        
+        // Check if routine is active based on startTime/endTime
+        if (r.startTime && r.endTime) {
+          // Check if current time is within or approaching the routine window
+          return currentTime >= r.startTime && currentTime <= r.endTime;
+        }
+        
+        // Fallback to dateTime check for backward compatibility
+        if (r.dateTime) {
+          const routineTime = new Date(r.dateTime);
+          return routineTime <= fiveMinutesLater && routineTime >= now;
+        }
+        
+        return false;
       });
 
     // Mark as notified
@@ -359,6 +393,10 @@ app.get('/api/routines/:patientId/pending', (req, res) => {
         routines.set(r.id, routine);
       }
     });
+
+    if (pendingRoutines.length > 0) {
+      console.log(`[ROUTINE] Found ${pendingRoutines.length} pending routines for patient ${patientId}`);
+    }
 
     res.json({
       success: true,
@@ -432,6 +470,152 @@ app.post('/api/admin/clear-all', (req, res) => {
   });
 });
 
+// ============================================
+// AI CONVERSATION ENDPOINTS
+// ============================================
+
+// Get AI configuration (patient profile only)
+app.get('/api/ai-config', (req, res) => {
+  try {
+    res.json({
+      patientProfile: {},
+      configured: !!GEMINI_API_KEY
+    });
+  } catch (error) {
+    console.error('Error getting AI config:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Save patient profile
+app.post('/api/patient-profile', (req, res) => {
+  try {
+    const { patientId, profile } = req.body;
+
+    if (!patientId) {
+      return res.status(400).json({ error: 'Patient ID required' });
+    }
+
+    patientProfiles.set(patientId, profile);
+
+    console.log(`[PROFILE] Updated for patient ${patientId}`);
+
+    res.json({
+      success: true,
+      message: 'Profile saved'
+    });
+  } catch (error) {
+    console.error('Error saving profile:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get patient profile
+app.get('/api/patient-profile/:patientId', (req, res) => {
+  try {
+    const { patientId } = req.params;
+    const profile = patientProfiles.get(patientId) || {};
+
+    res.json({ profile });
+  } catch (error) {
+    console.error('Error getting profile:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Generate conversation response using Gemini
+app.post('/api/ai-chat', async (req, res) => {
+  try {
+    const { patientId, systemPrompt, messages } = req.body;
+
+    if (!GEMINI_API_KEY || !model) {
+      return res.json({
+        success: false,
+        error: 'API key not configured',
+        response: 'AI belum dikonfigurasi. GEMINI_API_KEY tidak ditemukan di environment.'
+      });
+    }
+
+    // Save conversation history
+    const history = conversationHistory.get(patientId) || [];
+    messages.forEach(msg => {
+      if (!history.find(h => h.content === msg.content && h.role === msg.role)) {
+        history.push({
+          ...msg,
+          timestamp: new Date().toISOString()
+        });
+      }
+    });
+
+    // Keep last 20 messages
+    while (history.length > 20) {
+      history.shift();
+    }
+
+    conversationHistory.set(patientId, history);
+
+    // Build the full prompt with system instructions and conversation
+    let fullPrompt = '';
+    
+    if (systemPrompt) {
+      fullPrompt += systemPrompt + '\n\n';
+    }
+    
+    // Add conversation history
+    messages.forEach((msg, idx) => {
+      if (msg.role === 'user') {
+        fullPrompt += `User: ${msg.content}\n`;
+      } else if (msg.role === 'assistant') {
+        fullPrompt += `Assistant: ${msg.content}\n`;
+      }
+    });
+    
+    fullPrompt += '\nAssistant:';
+
+    console.log('[AI CHAT] Calling Gemini API...');
+    console.log('[AI CHAT] Prompt length:', fullPrompt.length);
+
+    // Generate response
+    const result = await model.generateContent(fullPrompt);
+    const response = await result.response;
+    const aiResponse = response.text();
+
+    console.log('[AI CHAT] Success! Response:', aiResponse);
+    console.log('[AI CHAT] Response length:', aiResponse.length);
+
+    res.json({
+      success: true,
+      response: aiResponse,
+      tokensUsed: 0 // SDK doesn't expose token count easily
+    });
+  } catch (error) {
+    console.error('[AI CHAT] Error:', error.message);
+    res.json({
+      success: false,
+      error: error.message,
+      response: 'Maaf, terjadi kesalahan saat menghubungi AI.'
+    });
+  }
+});
+
+// Get conversation summary
+app.get('/api/ai-summary/:patientId', (req, res) => {
+  try {
+    const { patientId } = req.params;
+    const history = conversationHistory.get(patientId) || [];
+
+    res.json({
+      totalMessages: history.length,
+      recentMessages: history.slice(-10),
+      firstMessage: history[0]?.timestamp,
+      lastMessage: history[history.length - 1]?.timestamp
+    });
+  } catch (error) {
+    console.error('Error getting summary:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`\n🚀 ARSIK Backend Server running on http://localhost:${PORT}`);
@@ -449,6 +633,12 @@ app.listen(PORT, () => {
   console.log(`   - DELETE /api/caregiver/routines/:id          - Delete routine`);
   console.log(`   - GET    /api/routines/:patientId             - Get patient routines`);
   console.log(`   - GET    /api/routines/:patientId/pending     - Get pending routines`);
+  console.log(`   - GET    /api/ai-config                       - Get AI config (🤖 NEW)`);
+  console.log(`   - POST   /api/patient-profile                 - Save patient profile (🤖 NEW)`);
+  console.log(`   - GET    /api/patient-profile/:patientId      - Get patient profile (🤖 NEW)`);
+  console.log(`   - POST   /api/ai-chat                         - AI chat with Gemini (🤖 NEW)`);
+  console.log(`   - GET    /api/ai-summary/:patientId           - Get conversation summary (🤖 NEW)`);
   console.log(`   - POST   /api/admin/clear-all                 - Clear all data (⚠️  ADMIN)`);
-  console.log(`   - GET    /api/health                          - Health check\n`);
+  console.log(`   - GET    /api/health                          - Health check`);
+  console.log(`\n🤖 Gemini API: ${GEMINI_API_KEY ? '✅ Configured' : '❌ Not configured (set GEMINI_API_KEY env var)'}\n`);
 });

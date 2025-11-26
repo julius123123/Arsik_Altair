@@ -181,14 +181,14 @@
 }
 
 .btn-upload {
-  background: #27ae60;
+  background: #2196F3;
   color: white;
 }
 
 .btn-upload:hover:not(:disabled) {
-  background: #229954;
+  background: #1E88E5;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3);
+  box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
 }
 
 .btn-upload:disabled {
