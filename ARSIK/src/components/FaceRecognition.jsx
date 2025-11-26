@@ -698,28 +698,39 @@ const FaceRecognition = () => {
 
   return (
     <div className="face-recognition">
-      <div className="video-container">
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted
-          onLoadedMetadata={() => {
-            if (canvasRef.current && videoRef.current) {
-              canvasRef.current.width = videoRef.current.videoWidth;
-              canvasRef.current.height = videoRef.current.videoHeight;
-              console.log('📹 Video ready:', {
-                width: videoRef.current.videoWidth,
-                height: videoRef.current.videoHeight,
-                readyState: videoRef.current.readyState
-              });
-            }
-          }}
-        />
-        <canvas ref={canvasRef} className="overlay-canvas" />
-      </div>
+      <div className="recognition-content">
+        <div className="video-section">
+          <div className="info-banner">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+              <path d="M12 16v-4M12 8h.01" stroke="currentColor" strokeWidth="2"/>
+            </svg>
+            <span>Kenali Pengunjung Anda</span>
+            <p>Sistem akan memberitahu apakah orang tersebut kerabat terdaftar atau orang asing.</p>
+          </div>
+          
+          <div className="video-container">
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              onLoadedMetadata={() => {
+                if (canvasRef.current && videoRef.current) {
+                  canvasRef.current.width = videoRef.current.videoWidth;
+                  canvasRef.current.height = videoRef.current.videoHeight;
+                  console.log('📹 Video ready:', {
+                    width: videoRef.current.videoWidth,
+                    height: videoRef.current.videoHeight,
+                    readyState: videoRef.current.readyState
+                  });
+                }
+              }}
+            />
+            <canvas ref={canvasRef} className="overlay-canvas" />
+          </div>
 
-      <div className="controls">
+          <div className="controls">
         <div className="button-group">
           {!isDetecting ? (
             <button onClick={startDetection} className="btn btn-primary" disabled={!modelsLoaded}>
@@ -814,11 +825,60 @@ const FaceRecognition = () => {
             </form>
           </div>
         )}
+          </div>
+        </div>
       </div>
 
-      <div className="stats">
-        <p>Known People: {knownFaces.length}</p>
-        <p>Detected Faces: {detectedFaces.length}</p>
+      {/* Known People Sidebar */}
+      <div className="known-people-sidebar">
+        <div className="sidebar-header">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="2"/>
+            <path d="M2 21v-2c0-2.2 1.8-4 4-4h6c2.2 0 4 1.8 4 4v2" stroke="currentColor" strokeWidth="2"/>
+            <circle cx="17" cy="11" r="2" stroke="currentColor" strokeWidth="2"/>
+            <path d="M22 21v-1c0-1.1-.9-2-2-2h-2" stroke="currentColor" strokeWidth="2"/>
+          </svg>
+          <h3>Kerabat Terdaftar</h3>
+        </div>
+        
+        <div className="known-people-list">
+          {knownFaces.length === 0 ? (
+            <div className="empty-people">
+              <p>Belum ada kerabat terdaftar</p>
+            </div>
+          ) : (
+            knownFaces.map((person) => (
+              <div key={person.id} className="person-card">
+                <div className="person-avatar">
+                  {person.imageData ? (
+                    <img src={person.imageData} alt={person.name} />
+                  ) : (
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="2"/>
+                      <path d="M4 20c0-4 3.5-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth="2"/>
+                    </svg>
+                  )}
+                </div>
+                <div className="person-info">
+                  <h4>{person.name}</h4>
+                  <p>{person.relation}</p>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="sidebar-footer">
+          <div className="instruction-list">
+            <h4>Cara Menggunakan</h4>
+            <ol>
+              <li>Tekan tombol "Pindai Wajah"</li>
+              <li>Arahkan kamera ke wajah orang</li>
+              <li>Tunggu hasil pindaian</li>
+              <li>Sistem akan memberitahu status</li>
+            </ol>
+          </div>
+        </div>
       </div>
     </div>
   );

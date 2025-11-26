@@ -1,21 +1,62 @@
 .face-recognition {
   display: flex;
+  gap: 30px;
+  padding: 30px;
+  height: 100%;
+  background: #e5e7eb;
+  overflow: hidden;
+}
+
+.recognition-content {
+  flex: 1;
+  display: flex;
   flex-direction: column;
   gap: 20px;
+  overflow-y: auto;
+}
+
+.video-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.info-banner {
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
   padding: 20px;
-  max-width: 1400px;
-  margin: 0 auto;
+  border-radius: 12px;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.info-banner svg {
+  margin-bottom: 8px;
+}
+
+.info-banner span {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.info-banner p {
+  margin: 0;
+  font-size: 13px;
+  opacity: 0.9;
+  line-height: 1.5;
 }
 
 .video-container {
   position: relative;
   width: 100%;
-  max-width: 1280px;
+  max-width: 800px;
   margin: 0 auto;
-  background: #000;
-  border-radius: 8px;
+  background: #1f2937;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .video-container video {
@@ -188,6 +229,147 @@
   border-color: #2196F3;
 }
 
+/* Known People Sidebar */
+.known-people-sidebar {
+  width: 350px;
+  background: white;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.known-people-sidebar .sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px;
+  border-bottom: 2px solid #f3f4f6;
+  background: white;
+}
+
+.known-people-sidebar .sidebar-header svg {
+  color: #3b82f6;
+  flex-shrink: 0;
+}
+
+.known-people-sidebar .sidebar-header h3 {
+  margin: 0;
+  color: #1f2937;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.known-people-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.empty-people {
+  text-align: center;
+  padding: 40px 20px;
+  color: #9ca3af;
+}
+
+.empty-people p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.person-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+  border: 2px solid transparent;
+}
+
+.person-card:hover {
+  background: #f3f4f6;
+  border-color: #10b981;
+}
+
+.person-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+
+.person-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.person-avatar svg {
+  width: 24px;
+  height: 24px;
+}
+
+.person-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.person-info h4 {
+  margin: 0 0 4px 0;
+  color: #1f2937;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.person-info p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-footer {
+  padding: 20px;
+  border-top: 2px solid #f3f4f6;
+  background: #f9fafb;
+}
+
+.instruction-list h4 {
+  margin: 0 0 12px 0;
+  color: #1f2937;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.instruction-list ol {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.instruction-list li {
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.6;
+  margin-bottom: 6px;
+}
+
 .stats {
   display: flex;
   justify-content: center;
@@ -208,7 +390,13 @@
 
 @media (max-width: 768px) {
   .face-recognition {
+    flex-direction: column;
     padding: 10px;
+  }
+
+  .known-people-sidebar {
+    width: 100%;
+    max-height: 300px;
   }
 
   .button-group {
